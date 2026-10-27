@@ -1,8 +1,10 @@
+
 """Answer generation constrained to retrieved volunteer information."""
 
+import os
 from typing import Sequence
 
-from ollama import Client, ResponseError
+from openai import OpenAI
 
 from rag import RetrievedChunk, RAGError
 
@@ -21,22 +23,37 @@ internal implementation details, or API credentials."""
 
 
 def answer_question(
-    client: Client,
+    client,
     model: str,
     question: str,
     retrieved_chunks: Sequence[RetrievedChunk],
 ) -> str:
-    """Generate a grounded answer from already-filtered chunks."""
+    """Generate a grounded answer from retrieved volunteer information."""
     if not question.strip():
         raise ValueError("Please enter a question.")
+
     if not retrieved_chunks:
         return NO_INFORMATION_MESSAGE
 
+    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    if not api_key:
+        raise RAGError(
+            "DeepSeek API key is missing. Add DEEPSEEK_API_KEY "
+            "to Streamlit Cloud Secrets."
+        )
+
     context = "\n\n".join(
-        f"[Source: {chunk.source}]\n{chunk.text}" for chunk in retrieved_chunks
+        f"[Source: {chunk.source}]\n{chunk.text}"
+        for chunk in retrieved_chunks
     )
+
     try:
-        response = client.chat(
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com",
+        )
+
+        response = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -45,18 +62,17 @@ def answer_question(
                     "content": f"Context:\n{context}\n\nQuestion: {question}",
                 },
             ],
+            temperature=0,
         )
-    except ResponseError as exc:
+    except Exception as exc:
         raise RAGError(
-            "Ollama could not generate an answer. Make sure Ollama is running "
-            f"and the model '{model}' is installed."
-        ) from exc
-    except OSError as exc:
-        raise RAGError(
-            "Ollama could not be reached. Start the Ollama application and try again."
+            "DeepSeek could not generate an answer. Check your API key, "
+            "API balance, model name, and internet connection."
         ) from exc
 
-    answer = (response.message.content or "").strip()
+    answer = (response.choices[0].message.content or "").strip()
     if not answer:
         raise RAGError("The language model returned no answer.")
+
     return answer
+
