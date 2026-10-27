@@ -1,0 +1,42 @@
+COMMUNITY VOLUNTEER NETWORK
+FICTIONAL SAMPLE CONTENT FOR AN ACADEMIC PROJECT
+
+Organization purpose
+Community Volunteer Network is a fictional community service organization
+created for this academic chatbot project. It connects volunteers with
+educational, neighborhood, and community-support activities.
+
+Mission
+Our mission is to make it easier for people to contribute time and practical
+help to welcoming, safe, and useful community activities.
+
+Vision
+Our vision is a community in which volunteers work together respectfully and
+every person can find a meaningful way to help.
+
+Volunteer program
+The volunteer program offers short event shifts and team-based community
+activities. New volunteers receive an event briefing, task instructions, and
+basic safety guidance before beginning work. Volunteers are expected to follow
+the volunteer guidelines, attendance rules, and instructions from the event
+coordinator.
+
+General working hours
+The general coordination hours are Monday through Friday, 9:00 AM to 5:00 PM,
+local time. Individual events may take place outside these hours. The event
+schedule is the source of truth for each volunteer shift.
+
+Departments and teams
+- Volunteer Coordination Team: schedules volunteers and answers program
+  questions.
+- Event Support Team: plans layouts, supplies, registration, and cleanup.
+- Participant Welcome Team: guides visitors and supports participant needs.
+- Safety and Wellbeing Team: receives safety concerns and coordinates responses
+  with the event lead.
+- Community Programs Team: develops educational and neighborhood activities.
+
+General contact role
+For questions about joining, attendance, schedules, or changing tasks, contact
+the Volunteer Coordinator through the official event communication channel.
+For an immediate safety concern, notify the event lead and follow the emergency
+procedures. No personal contact details are included in this sample data.
