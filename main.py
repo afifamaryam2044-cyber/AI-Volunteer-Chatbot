@@ -67,6 +67,14 @@ if question is not None:
                     question, threshold=RELEVANCE_THRESHOLD
                 )
 
+                # Temporary debugging information
+                st.write("Debug - Retrieved chunks:", len(matches))
+                st.write("Debug - Threshold:", RELEVANCE_THRESHOLD)
+                st.write(
+                    "Debug - Sources:",
+                    [match.source for match in matches],
+                )
+
                 response = answer_question(
                     client=None,
                     model="openai/gpt-oss-120b",
@@ -93,4 +101,3 @@ if question is not None:
 
             except (RAGError, ValueError) as exc:
                 st.error(str(exc))
-
