@@ -1,9 +1,10 @@
 
-"""Answer generation using local Ollama."""
+"""Answer generation using Groq."""
 
+import os
 from typing import Sequence
-import ollama
 
+from openai import OpenAI
 from rag import RetrievedChunk, RAGError
 
 NO_INFORMATION_MESSAGE = (
@@ -30,14 +31,25 @@ def answer_question(
     if not retrieved_chunks:
         return NO_INFORMATION_MESSAGE
 
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        raise RAGError(
+            "Groq API key is missing. Add GROQ_API_KEY to Streamlit Cloud Secrets."
+        )
+
     context = "\n\n".join(
         f"[Source: {chunk.source}]\n{chunk.text}"
         for chunk in retrieved_chunks
     )
 
     try:
-        response = ollama.chat(
-            model="llama3.2:3b",
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.groq.com/openai/v1",
+        )
+
+        response = client.chat.completions.create(
+            model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
@@ -45,11 +57,13 @@ def answer_question(
                     "content": f"Context:\n{context}\n\nQuestion: {question}",
                 },
             ],
+            temperature=0,
         )
     except Exception as exc:
         raise RAGError(
-            "Ollama could not be reached. Make sure Ollama is running."
+            "Groq could not generate an answer. Check your API key, "
+            "model name, usage limits, and internet connection."
         ) from exc
 
-    answer = response["message"]["content"].strip()
+    answer = (response.choices[0].message.content or "").strip()
     return answer or NO_INFORMATION_MESSAGE
