@@ -41,6 +41,6 @@ def _read_int(name: str, default: int) -> int:
         ) from exc
 
 
-RELEVANCE_THRESHOLD = _read_float("RELEVANCE_THRESHOLD", 0.35)
+RELEVANCE_THRESHOLD = _read_float("RELEVANCE_THRESHOLD", 0.20)
 CHUNK_SIZE = _read_int("CHUNK_SIZE", 180)
 CHUNK_OVERLAP = _read_int("CHUNK_OVERLAP", 40)
