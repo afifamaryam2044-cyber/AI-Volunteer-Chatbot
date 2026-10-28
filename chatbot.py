@@ -1,5 +1,6 @@
 
 
+
 """Answer generation using Groq."""
 
 import os
@@ -13,11 +14,12 @@ NO_INFORMATION_MESSAGE = (
 )
 
 SYSTEM_PROMPT = """You are the AI Volunteer Chatbot.
-Answer only using the supplied volunteer context.
+Answer using only the supplied volunteer context.
 Do not guess or use outside knowledge.
+If the context contains the answer, answer the question clearly.
 If the context does not contain the answer, reply exactly:
 The information is not available in the provided volunteer information.
-Keep answers clear and concise."""
+Keep answers concise."""
 
 
 def answer_question(
@@ -58,7 +60,10 @@ def answer_question(
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
                     "role": "user",
-                    "content": f"Context:\n{context}\n\nQuestion: {question}",
+                    "content": (
+                        f"Context:\n{context}\n\n"
+                        f"Question: {question}"
+                    ),
                 },
             ],
             temperature=0,
@@ -68,6 +73,5 @@ def answer_question(
         return answer or NO_INFORMATION_MESSAGE
 
     except Exception as exc:
-        raise RAGError(
-            f"Groq API error: {exc}"
-        ) from exc
+        raise RAGError(f"Groq API error: {exc}") from exc
+
