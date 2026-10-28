@@ -1,10 +1,11 @@
 
+
 """Answer generation using Groq."""
 
 import os
-from typing import Sequence
-
+import streamlit as st
 from openai import OpenAI
+
 from rag import RetrievedChunk, RAGError
 
 NO_INFORMATION_MESSAGE = (
@@ -23,7 +24,7 @@ def answer_question(
     client,
     model: str,
     question: str,
-    retrieved_chunks: Sequence[RetrievedChunk],
+    retrieved_chunks: list[RetrievedChunk],
 ) -> str:
     if not question.strip():
         raise ValueError("Please enter a question.")
@@ -31,7 +32,10 @@ def answer_question(
     if not retrieved_chunks:
         return NO_INFORMATION_MESSAGE
 
-    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    api_key = str(
+        st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", ""))
+    ).strip()
+
     if not api_key:
         raise RAGError(
             "Groq API key is missing. Add GROQ_API_KEY to Streamlit Cloud Secrets."
@@ -43,12 +47,12 @@ def answer_question(
     )
 
     try:
-        client = OpenAI(
+        groq_client = OpenAI(
             api_key=api_key,
             base_url="https://api.groq.com/openai/v1",
         )
 
-        response = client.chat.completions.create(
+        response = groq_client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -59,11 +63,11 @@ def answer_question(
             ],
             temperature=0,
         )
+
+        answer = (response.choices[0].message.content or "").strip()
+        return answer or NO_INFORMATION_MESSAGE
+
     except Exception as exc:
         raise RAGError(
-            "Groq could not generate an answer. Check your API key, "
-            "model name, usage limits, and internet connection."
+            f"Groq API error: {exc}"
         ) from exc
-
-    answer = (response.choices[0].message.content or "").strip()
-    return answer or NO_INFORMATION_MESSAGE
