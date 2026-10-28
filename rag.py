@@ -1,3 +1,4 @@
+
 """Document loading, chunking, embedding, and similarity retrieval."""
 
 from dataclasses import dataclass
@@ -35,19 +36,20 @@ class RetrievedChunk:
 
 
 def clean_text(text: str) -> str:
-    """Normalize whitespace while preserving the document's meaning."""
+    """Normalize whitespace while preserving document meaning."""
     return re.sub(r"\s+", " ", text).strip()
 
 
 def load_documents(knowledge_dir: Path) -> List[tuple[str, str]]:
-    """Load every non-empty TXT file, returning (filename, cleaned text)."""
+    """Load every non-empty TXT file."""
     if not knowledge_dir.exists() or not knowledge_dir.is_dir():
         raise KnowledgeBaseError(
             f"Knowledge folder was not found: {knowledge_dir}"
         )
 
-    documents: List[tuple[str, str]] = []
-    empty_files: List[str] = []
+    documents = []
+    empty_files = []
+
     for path in sorted(knowledge_dir.glob("*.txt")):
         try:
             text = clean_text(path.read_text(encoding="utf-8"))
@@ -55,22 +57,22 @@ def load_documents(knowledge_dir: Path) -> List[tuple[str, str]]:
             raise KnowledgeBaseError(
                 f"Could not read knowledge file '{path.name}'."
             ) from exc
+
         if text:
             documents.append((path.name, text))
         else:
             empty_files.append(path.name)
 
     if empty_files:
-        names = ", ".join(empty_files)
         raise KnowledgeBaseError(
-            f"Knowledge file(s) are empty: {names}. Add approved information "
-            "before starting the chatbot."
+            "Knowledge file(s) are empty: " + ", ".join(empty_files)
         )
 
     if not documents:
         raise KnowledgeBaseError(
             "No non-empty .txt files were found in the knowledge folder."
         )
+
     return documents
 
 
@@ -81,15 +83,20 @@ def split_into_chunks(
 ) -> List[DocumentChunk]:
     """Split documents into overlapping word-based chunks."""
     if chunk_size <= 0 or chunk_overlap < 0 or chunk_overlap >= chunk_size:
-        raise ValueError("chunk_overlap must be >= 0 and smaller than chunk_size.")
+        raise ValueError(
+            "chunk_overlap must be >= 0 and smaller than chunk_size."
+        )
 
-    chunks: List[DocumentChunk] = []
+    chunks = []
     step = chunk_size - chunk_overlap
+
     for source, text in documents:
         words = text.split()
         is_placeholder = text.lower().startswith("placeholder:")
+
         for start in range(0, len(words), step):
-            section = " ".join(words[start : start + chunk_size]).strip()
+            section = " ".join(words[start:start + chunk_size]).strip()
+
             if section:
                 chunks.append(
                     DocumentChunk(
@@ -98,15 +105,20 @@ def split_into_chunks(
                         is_placeholder=is_placeholder,
                     )
                 )
+
             if start + chunk_size >= len(words):
                 break
+
     if not chunks:
-        raise KnowledgeBaseError("The knowledge files did not contain usable text.")
+        raise KnowledgeBaseError(
+            "The knowledge files did not contain usable text."
+        )
+
     return chunks
 
 
 def _normalize_rows(vectors: np.ndarray) -> np.ndarray:
-    """Normalize vectors so their dot product is cosine similarity."""
+    """Normalize vectors for cosine similarity."""
     norms = np.linalg.norm(vectors, axis=1, keepdims=True)
     return vectors / np.clip(norms, 1e-12, None)
 
@@ -133,10 +145,11 @@ class RAGRetriever:
         chunk_overlap: int,
     ) -> "RAGRetriever":
         documents = load_documents(knowledge_dir)
-        chunks = split_into_chunks(documents, chunk_size, chunk_overlap)
+        chunks = split_into_chunks(
+            documents, chunk_size, chunk_overlap
+        )
+
         try:
-            # Import lazily so the Streamlit interface can show a useful setup
-            # error if the Windows ML runtime is not installed yet.
             from sentence_transformers import SentenceTransformer
 
             embedding_model = SentenceTransformer(embedding_model_name)
@@ -148,24 +161,30 @@ class RAGRetriever:
         except Exception as exc:
             raise RAGError(
                 "The local embedding model could not be loaded. "
-                "Check your installation and internet connection for the first download."
+                "Check the model name and internet connection."
             ) from exc
 
         vectors = np.asarray(vectors, dtype=float)
+
         if len(vectors) != len(chunks) or vectors.size == 0:
-            raise RAGError("The local embedding model returned an unexpected result.")
+            raise RAGError(
+                "The local embedding model returned an unexpected result."
+            )
+
         return cls(embedding_model, chunks, vectors)
 
     def retrieve(
         self,
         question: str,
         top_k: int = 4,
-        threshold: float = 0.35,
+        threshold: float = 0.25,
     ) -> List[RetrievedChunk]:
-        """Return only chunks that meet the configured relevance threshold."""
+        """Retrieve relevant chunks with a more permissive threshold."""
         question = clean_text(question)
+
         if not question:
             return []
+
         try:
             query_vector = self.embedding_model.encode(
                 [question],
@@ -173,10 +192,17 @@ class RAGRetriever:
                 normalize_embeddings=False,
             )
         except Exception as exc:
-            raise RAGError("The local embedding model could not encode the question.") from exc
-        query_vector = _normalize_rows(np.asarray(query_vector, dtype=float))[0]
+            raise RAGError(
+                "The local embedding model could not encode the question."
+            ) from exc
+
+        query_vector = _normalize_rows(
+            np.asarray(query_vector, dtype=float)
+        )[0]
+
         scores = self.embeddings @ query_vector
         ranked_indexes = np.argsort(scores)[::-1]
+
         relevant_indexes = [
             index
             for index in ranked_indexes
@@ -184,25 +210,14 @@ class RAGRetriever:
             and scores[index] >= threshold
         ]
 
-        # Emergency questions should consult the dedicated procedure file first.
-        emergency_terms = {
-            "emergency",
-            "urgent",
-            "danger",
-            "injury",
-            "accident",
-            "fire",
-            "unsafe",
-        }
-        if emergency_terms.intersection(set(question.lower().split())):
-            emergency_indexes = [
+        # If no chunk meets the threshold, return the best non-placeholder
+        # match instead of immediately claiming the information is missing.
+        if not relevant_indexes:
+            relevant_indexes = [
                 index
                 for index in ranked_indexes
-                if self.chunks[index].source == "emergency_procedures.txt"
-                and not self.chunks[index].is_placeholder
-            ]
-            if emergency_indexes and emergency_indexes[0] not in relevant_indexes:
-                relevant_indexes.insert(0, emergency_indexes[0])
+                if not self.chunks[index].is_placeholder
+            ][:1]
 
         return [
             RetrievedChunk(
