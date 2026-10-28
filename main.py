@@ -1,4 +1,5 @@
 
+
 """Streamlit entry point for the AI Volunteer Chatbot."""
 
 import streamlit as st
@@ -68,7 +69,7 @@ if question is not None:
 
                 response = answer_question(
                     client=None,
-                    model="deepseek-chat",
+                    model="openai/gpt-oss-120b",
                     question=question,
                     retrieved_chunks=matches,
                 )
@@ -92,3 +93,4 @@ if question is not None:
 
             except (RAGError, ValueError) as exc:
                 st.error(str(exc))
+
